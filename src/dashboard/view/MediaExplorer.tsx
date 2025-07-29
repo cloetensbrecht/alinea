@@ -1,20 +1,25 @@
 //import {EntryProperty} from '../draft/EntryProperty.js'
 //import {useCurrentDraft} from '../hook/UseCurrentDraft.js'
 import styler from '@alinea/styler'
+import {track} from 'alinea/config'
 import {Entry} from 'alinea/core/Entry'
 import type {EntryFields} from 'alinea/core/EntryFields'
 import type {Filter} from 'alinea/core/Filter'
-import type {QueryWithResult} from 'alinea/core/Graph'
+import type {Order, QueryWithResult} from 'alinea/core/Graph'
 import type {RootData} from 'alinea/core/Root'
+import {type} from 'alinea/core/Type'
 import {workspaceMediaDir} from 'alinea/core/util/EntryFilenames'
+import {useForm} from 'alinea/dashboard'
 import {EntryHeader} from 'alinea/dashboard/view/entry/EntryHeader'
+import {select} from 'alinea/field'
 import {HStack, TextLabel, VStack} from 'alinea/ui'
 import {IcRoundArrowBack} from 'alinea/ui/icons/IcRoundArrowBack'
 import {Main} from 'alinea/ui/Main'
-import {useMemo} from 'react'
+import {type Dispatch, type SetStateAction, useMemo, useState} from 'react'
 import {useQuery} from 'react-query'
 import type {EntryEditor} from '../atoms/EntryEditorAtoms.js'
 import {useNavigate} from '../atoms/LocationAtoms.js'
+import {InputForm} from '../editor/InputForm.js'
 import {useConfig} from '../hook/UseConfig.js'
 import {useGraph} from '../hook/UseGraph.js'
 import {useNav} from '../hook/UseNav.js'
@@ -33,9 +38,49 @@ export interface MediaExplorerProps {
   root?: RootData
 }
 
-function FilterAndSortBar() {
+const sortOptions = {
+  id: 'Latest',
+  titleAsc: 'Title A-Z',
+  titleDesc: 'Title Z-A'
+}
+type SortOptions = keyof typeof sortOptions
+
+function FilterAndSortBar({
+  setSortBy
+}: {
+  setSortBy: Dispatch<SetStateAction<SortOptions>>
+}) {
+  const insertSortField = useMemo(() => {
+    const sortField = select('Sort by', {
+      options: sortOptions,
+      initialValue: 'id',
+      required: true,
+      width: 0.25
+    })
+    return track.options(sortField, get => {
+      const selectedSort = get(sortField)
+      setSortBy(selectedSort)
+      return {}
+    })
+  }, [])
+
+  const filterAndSortForm = useMemo(
+    () =>
+      type('', {
+        fields: {
+          sort: insertSortField
+        }
+      }),
+    []
+  )
+  const form = useForm(filterAndSortForm)
+
   return (
-    <HStack className={styles.root.filterAndSortBar()}>Sort select here</HStack>
+    <HStack className={styles.root.filterAndSortBar()}>
+      <div style={{width: '100%'}}>
+        <InputForm border={false} form={form} />
+      </div>
+    </HStack>
   )
 }
 
@@ -45,6 +90,7 @@ export function MediaExplorer({editor}: MediaExplorerProps) {
   const workspace = useWorkspace()
   const root = useRoot()
   const graph = useGraph()
+  const [sortBy, setSortBy] = useState<SortOptions>('id')
   const condition = useMemo((): Filter<EntryFields> => {
     return {
       _root: root.name,
@@ -52,12 +98,22 @@ export function MediaExplorer({editor}: MediaExplorerProps) {
       _parentId: parentId ?? null
     }
   }, [workspace, root, parentId])
+
   const {data} = useQuery(
-    ['explorer', 'media', 'total', condition],
+    ['explorer', 'media', 'total', condition, sortBy],
     async () => {
+      const orderBy: Order[] = [{desc: Entry.type}]
+      if (sortBy === 'id') {
+        orderBy.push({desc: Entry.id})
+      } else if (sortBy === 'titleAsc') {
+        orderBy.push({asc: Entry.title})
+      } else if (sortBy === 'titleDesc') {
+        orderBy.push({desc: Entry.title})
+      }
+
       const query: QueryWithResult<ExporerItemSelect> = {
         select: undefined!,
-        orderBy: [{desc: Entry.type}, {desc: Entry.id}],
+        orderBy,
         filter: condition
       }
       const info =
@@ -102,7 +158,7 @@ export function MediaExplorer({editor}: MediaExplorerProps) {
                     <TextLabel label={title} />
                   </h1>
                 </HStack>
-                <FilterAndSortBar />
+                <FilterAndSortBar setSortBy={setSortBy} />
               </VStack>
             </header>
             <Explorer
