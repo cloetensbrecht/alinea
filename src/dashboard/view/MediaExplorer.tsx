@@ -33,6 +33,12 @@ export interface MediaExplorerProps {
   root?: RootData
 }
 
+function FilterAndSortBar() {
+  return (
+    <HStack className={styles.root.filterAndSortBar()}>Sort select here</HStack>
+  )
+}
+
 export function MediaExplorer({editor}: MediaExplorerProps) {
   const config = useConfig()
   const parentId = editor?.entryId
@@ -87,14 +93,17 @@ export function MediaExplorer({editor}: MediaExplorerProps) {
               <Head>
                 <title>{`${workspace.label}: ${String(title)}`}</title>
               </Head>
-              <HStack center gap={18}>
-                {backLink && (
-                  <IconLink icon={IcRoundArrowBack} href={backLink} />
-                )}
-                <h1 className={styles.root.title()}>
-                  <TextLabel label={title} />
-                </h1>
-              </HStack>
+              <VStack gap={18}>
+                <HStack center gap={18}>
+                  {backLink && (
+                    <IconLink icon={IcRoundArrowBack} href={backLink} />
+                  )}
+                  <h1 className={styles.root.title()}>
+                    <TextLabel label={title} />
+                  </h1>
+                </HStack>
+                <FilterAndSortBar />
+              </VStack>
             </header>
             <Explorer
               query={query}
